@@ -10,12 +10,15 @@ clean:
 	
 execute:
 	./vector 
-	./vector 3
+
 	./vector 4
-	./vector 5
-	./vector 6
-	./vector 7
 	./vector 8
-	./vector 9
-	./vector 10
+	./vector 10 500
+
+	./matrix 
+
+	./matrix 4
+	./matrix 8
+	./matrix 10 500
+
 	
