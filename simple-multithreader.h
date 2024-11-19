@@ -175,7 +175,7 @@ int main(int argc, char **argv) {
   int rc = user_main(argc, argv);
  
   auto lambda2 = []() {
-    cout<<"====== Hope you enjoyed CSE231(A) ======\n";
+    cout<<"====== Hope you enjoyed CSE231(A) ======\n \n";
   };
   demonstration(lambda2);
   return rc;
