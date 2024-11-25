@@ -9,7 +9,6 @@
 
 using namespace std;
 
-
 int user_main(int argc, char **argv);
 
 void parallel_for(int low1, int high1,  int low2, int high2, function<void(int, int)>  &&lambda, int numThreads);
@@ -51,6 +50,7 @@ int iteration_end_finder(int i, int numThreads, int high, int iteration_begin_po
 
 
 void parallel_for(int low, int high, function<void(int)> &&lambda, int numThreads){
+	numThreads--;
 
 	if (high < low){
 		cout << "The high and low bounds are given incorrectly. \n ";
@@ -65,6 +65,13 @@ void parallel_for(int low, int high, function<void(int)> &&lambda, int numThread
 	pthread_t threads_made[numThreads];
 	function<void()> functions[numThreads];
 	
+	pthread_mutex_t mutex;
+	if (pthread_mutex_init(&mutex, NULL) != 0)
+    	{
+        	perror("Semaphore initialization failed");
+        	return;
+    	}
+	
 	int threads_made_yet = 0;
 	
 	for ( int i = 0 ; i < numThreads ; i++){
@@ -72,9 +79,11 @@ void parallel_for(int low, int high, function<void(int)> &&lambda, int numThread
 		int iteration_begin_point = iteration_begin_finder(i, length_of_each_thread, low);
 		int iteration_end_point = iteration_end_finder(i, numThreads, high, iteration_begin_point, length_of_each_thread);
 		
-		functions[i] = [iteration_begin_point , iteration_end_point , &lambda](){
+		functions[i] = [iteration_begin_point , iteration_end_point , &lambda, &mutex](){
 			for (int j = iteration_begin_point; j < iteration_end_point; j++){
+				pthread_mutex_lock(&mutex);
 				lambda(j);
+				pthread_mutex_unlock(&mutex);
 			}
 		};
 		
@@ -106,6 +115,8 @@ void parallel_for(int low, int high, function<void(int)> &&lambda, int numThread
 
 
 void parallel_for(int low1, int high1,  int low2, int high2, function<void(int, int)>  &&lambda, int numThreads){
+
+	numThreads--;
 
 	if (high1 < low1){
 		cout << "The high1 and low1 bounds are given incorrectly. \n ";
