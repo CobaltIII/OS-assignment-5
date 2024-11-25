@@ -29,26 +29,6 @@ void* parallel_execution(void* arg) {
     return nullptr;
 }
 
-int iteration_begin_finder(int i, int length_of_each_thread, int low){
-	int a = ((i * length_of_each_thread) + low);
-	if (a < 0){
-		cerr << "iteration finder failed" << endl;
-            	exit(EXIT_FAILURE);
-	}
-	return a;
-}
-
-int iteration_end_finder(int i, int numThreads, int high, int iteration_begin_point, int length_of_each_thread){
-	if ( i == numThreads - 1){
-		return high;
-	}
-	else{
-		return iteration_begin_point + length_of_each_thread;
-	}
-}
-
-
-
 void parallel_for(int low, int high, function<void(int)> &&lambda, int numThreads){
 	numThreads--;
 
@@ -60,7 +40,8 @@ void parallel_for(int low, int high, function<void(int)> &&lambda, int numThread
 	clock_t start = get_time();
 	
 	int interate_from_to = high - low;
-	int length_of_each_thread = ((high - low) / numThreads);
+	int length_of_each_thread_minima = ((high - low) / numThreads);
+	int leftovers = (interate_from_to - (numThreads * length_of_each_thread_minima));
 	
 	pthread_t threads_made[numThreads];
 	function<void()> functions[numThreads];
@@ -73,11 +54,22 @@ void parallel_for(int low, int high, function<void(int)> &&lambda, int numThread
     	}
 	
 	int threads_made_yet = 0;
+	int last_end = 0;
+	int emergency = 0;
+	int iteration_begin_point, iteration_end_point;
 	
 	for ( int i = 0 ; i < numThreads ; i++){
+		
+		emergency = (leftovers > 0) ? 1 : 0;
+		
+		iteration_begin_point = last_end;
+		iteration_end_point = iteration_begin_point + length_of_each_thread_minima + emergency;
+		
+		leftovers--;
+		last_end = iteration_end_point;
 	
-		int iteration_begin_point = iteration_begin_finder(i, length_of_each_thread, low);
-		int iteration_end_point = iteration_end_finder(i, numThreads, high, iteration_begin_point, length_of_each_thread);
+		//int iteration_begin_point = iteration_begin_finder(i, length_of_each_thread, low);
+		//int iteration_end_point = iteration_end_finder(i, numThreads, high, iteration_begin_point, length_of_each_thread);
 		
 		functions[i] = [iteration_begin_point , iteration_end_point , &lambda, &mutex](){
 			for (int j = iteration_begin_point; j < iteration_end_point; j++){
@@ -118,16 +110,8 @@ void parallel_for(int low1, int high1,  int low2, int high2, function<void(int, 
 
 	numThreads--;
 
-	if (high1 < low1){
-		cout << "The high1 and low1 bounds are given incorrectly. \n ";
-		return;
-	}
-	
-	if (high2 < low2){
-		cout << "The high2 and low2 bounds are given incorrectly. \n ";
-		return;
-	}
-	
+	if (high1 < low1 || high2 < low2){ cout << "The high1 and low1 bounds are given incorrectly. \n "; return; }
+
 	clock_t start = get_time();
 	
 	int interate_main_from_to = high1 - low1;
@@ -136,18 +120,42 @@ void parallel_for(int low1, int high1,  int low2, int high2, function<void(int, 
 	pthread_t threads_made[numThreads];
 	function<void()> functions[numThreads];
 	
+	pthread_mutex_t mutex;
+	if (pthread_mutex_init(&mutex, NULL) != 0)
+    	{
+        	perror("Semaphore initialization failed");
+        	return;
+    	}
+	
 	int threads_made_yet = 0;
 	
+	int total_element = ((high1 - low1) * (high2 - low2));
+	int length_of_each_thread_minima = (total_element / numThreads);
+	int leftovers = (total_element - (numThreads * length_of_each_thread_minima));
+	
+	int last_end = 0;
+	int emergency = 0;
+	int iteration_begin_point, iteration_end_point;
+	
+	
 	for(int i = 0; i < numThreads; i++){
-		int iteration_begin = iteration_begin_finder(i, length_of_each_thread_of_main, low1);
-		int iteration_end = iteration_end_finder(i, numThreads, high1, iteration_begin, length_of_each_thread_of_main);
-		functions[i] = [iteration_begin , iteration_end , low2, high2, &lambda](){
-			for (int j = iteration_begin; j < iteration_end; j++){
-				for (int k = low2; k < high2; k++){
-					lambda(j , k);
-				}
+		emergency = (leftovers > 0) ? 1 : 0;
+		
+		iteration_begin_point = last_end;
+		iteration_end_point = iteration_begin_point + length_of_each_thread_minima + emergency;
+		
+		leftovers--;
+		last_end = iteration_end_point;
+		
+		functions[i] = [iteration_begin_point , iteration_end_point  , low1 , high1, &lambda , &mutex](){
+			for (int j = iteration_begin_point; j < iteration_end_point; j++){
+				pthread_mutex_lock(&mutex);
+				lambda(j / (high1 - low1)  , j % (high1 - low1));
+				pthread_mutex_unlock(&mutex);
 			}
 		};
+		
+		
 		
 		int error = pthread_create(&threads_made[i] , NULL , parallel_execution, &functions[i]);
 		threads_made_yet++;
